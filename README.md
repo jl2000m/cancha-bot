@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CanchaBot ⚽
 
-## Getting Started
+AI-powered soccer venue booking agent. Chat via web UI or Telegram to check availability and book courts at PRO CAMP EXPLORA (Panama).
 
-First, run the development server:
+## Architecture
+
+```
+User → Web Chat UI / Telegram Bot
+          ↓
+     AI Agent (Vercel AI SDK + OpenAI gpt-4o-mini)
+          ↓
+     Tools: check_availability, get_venue_info, create_booking
+          ↓
+     ATC Sports API (real-time availability)
+```
+
+## Quick Start
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Set up environment variables
+
+Copy `.env.local` and fill in your keys:
+
+```bash
+# Required
+OPENAI_API_KEY=sk-...
+
+# Optional (for Telegram)
+TELEGRAM_BOT_TOKEN=...
+```
+
+### 3. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) for the web chat UI.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Set up Telegram Bot (optional)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Message [@BotFather](https://t.me/BotFather) on Telegram
+2. Send `/newbot` and follow the prompts
+3. Copy the bot token to `TELEGRAM_BOT_TOKEN` in `.env.local`
+4. Deploy to Vercel, then set the webhook:
 
-## Learn More
+```bash
+./scripts/set-telegram-webhook.sh YOUR_BOT_TOKEN https://your-app.vercel.app
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── chat/route.ts          # Web chat API (streaming)
+│   │   └── telegram/route.ts      # Telegram webhook handler
+│   ├── page.tsx                    # Web chat UI page
+│   ├── layout.tsx
+│   └── globals.css
+├── components/
+│   └── chat.tsx                    # Chat UI component
+└── lib/
+    ├── ai/
+    │   ├── agent.ts                # AI agent (streaming, for web)
+    │   ├── generate.ts             # AI agent (non-streaming, for Telegram)
+    │   └── tools.ts                # Tool definitions (availability, booking)
+    ├── atc/
+    │   ├── client.ts               # ATC Sports API client
+    │   └── venues.ts               # Venue configurations
+    └── telegram/
+        └── bot.ts                  # Telegram bot setup
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Data Source
 
-## Deploy on Vercel
+Availability comes from the ATC Sports public API:
+```
+GET https://alquilatucancha.com/api/v3/availability/sportclubs/1863?date=YYYY-MM-DD
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+No scraping needed — clean REST API with real-time court availability, prices, and venue info.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Adding More Venues (Marketplace)
+
+Edit `src/lib/atc/venues.ts` to add more venues. Each venue needs its `atcSportclubId` from the ATC platform. The system is designed to be multi-tenant from day one.
+
+## Persistence
+
+Bookings are logged to the server console for now. You can add a database (Postgres, Supabase, etc.) later without changing the chat or Telegram layers.
+
+## Tech Stack
+
+- **Next.js** (App Router)
+- **Vercel AI SDK** + **OpenAI gpt-4o-mini**
+- **Telegraf** (Telegram bot framework)
+- **Tailwind CSS** (UI styling)
+- **TypeScript** (full type safety)
