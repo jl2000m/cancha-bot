@@ -26,6 +26,9 @@ export const VENUE_PLAYBOOK = {
       "Toda reserva debe ser separada con el **50%** del monto total de la reserva.",
     footwear:
       "Solo se permite el uso de **taquillos de fútbol** (no tenis ni calzado de calle).",
+    cancellation:
+      "Puedes **cancelar o reprogramar** con **al menos 24 horas** de anticipación. " +
+      "Si avisas después, pueden aplicar políticas o cargos del club; ante duda, confirma con recepción o por los canales oficiales.",
   },
   payment: {
     yappyHandle: "@procampexplora",

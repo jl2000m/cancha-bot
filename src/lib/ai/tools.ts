@@ -13,10 +13,11 @@ const venue = DEFAULT_VENUE;
 export const bookingTools = {
   checkAvailability: tool({
     description:
-      "Check available courts and time slots for a given date at the soccer venue. " +
-      "Use this when the user asks about availability, open slots, or wants to know " +
-      "what times are free. The date should be in YYYY-MM-DD format. " +
-      "If user says 'tomorrow', 'Saturday', etc., convert to the actual date.",
+      "Check available courts and time slots for one date at the soccer venue. " +
+      "Use for availability questions. Date in YYYY-MM-DD; convert 'tomorrow', 'Saturday', etc. " +
+      "After results: if the user asked for a specific time that is missing, do NOT dump every slot—offer " +
+      "the closest 1–2 options on that day and optionally ask if they want the full list. " +
+      "Use checkMultipleDays when you need the same clock time on nearby days.",
     inputSchema: z.object({
       date: z
         .string()
@@ -101,9 +102,10 @@ export const bookingTools = {
 
   checkMultipleDays: tool({
     description:
-      "Check availability across multiple days to help the user find " +
-      "the best option. Use when the user is flexible on dates or asks " +
-      "'when is the next available slot?'",
+      "Check availability across multiple consecutive days (max 6). " +
+      "Use when the user is flexible on dates, asks for the next opening, or you need to see if " +
+      "a specific hour exists tomorrow/day after while today has no match. " +
+      "Keep the user-facing answer short: cite only relevant days/slots, not full dumps.",
     inputSchema: z.object({
       startDate: z
         .string()
@@ -141,9 +143,9 @@ export const bookingTools = {
 
   createBooking: tool({
     description:
-      "Create a booking reservation. Use this ONLY after the user has confirmed " +
-      "which court, date, time, and provided their name. Always confirm details " +
-      "with the user before calling this.",
+      "Create a booking reservation. Use ONLY after the user confirmed court, date, time, and name " +
+      "(phone if given). Do not use for non-booking requests. After success, keep the reply short " +
+      "and include deposit, footwear, cancellation (24h), and Yappy per system instructions.",
     inputSchema: z.object({
       courtName: z.string().describe("Name of the court (e.g., 'Cancha 1 F5')"),
       date: z.string().describe("Date in YYYY-MM-DD format"),
