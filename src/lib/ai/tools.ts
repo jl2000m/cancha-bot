@@ -17,6 +17,10 @@ import {
   scrapeSkeddaConsecutiveDays,
   scrapeSkeddaDayAvailability,
 } from "@/lib/skedda/scrape-availability";
+import {
+  fetchWixBookingsConsecutiveDays,
+  fetchWixBookingsDayAvailability,
+} from "@/lib/wix-bookings/availability";
 
 export type BookingToolsMode = "single" | "multi";
 
@@ -76,6 +80,14 @@ function isSkeddaUrl(url: string | undefined): boolean {
   return !!url && url.includes("skedda.com");
 }
 
+function hasWixBookingsApi(venue: VenueConfig): boolean {
+  return (
+    venue.provider === "external" &&
+    !!venue.wixBookings &&
+    !!venue.externalBookingUrl
+  );
+}
+
 function buildListVenuesResult() {
   return {
     venues: Object.values(VENUES).map((v) => ({
@@ -83,7 +95,8 @@ function buildListVenuesResult() {
       name: v.name,
       liveAvailabilityInChat:
         v.provider === "atc" ||
-        (v.provider === "external" && isSkeddaUrl(v.externalBookingUrl)),
+        (v.provider === "external" && isSkeddaUrl(v.externalBookingUrl)) ||
+        (v.provider === "external" && !!v.wixBookings),
       bookingUrl:
         v.provider === "external" && !hidePublicBooking(v)
           ? (v.externalBookingUrl ?? null)
@@ -91,11 +104,13 @@ function buildListVenuesResult() {
       note:
         v.provider === "external" && hidePublicBooking(v)
           ? "Reservas y cupos solo por este chat (sin enlaces externos al usuario)."
-          : v.provider === "external" && isSkeddaUrl(v.externalBookingUrl)
-            ? "Disponibilidad vía Skedda (hover verde); aplica duración mínima del venue si está configurada."
-            : v.provider === "external"
-              ? "Consulta horarios y paga en el enlace oficial."
-              : "Puedes consultar horarios en este chat con checkAvailability.",
+          : v.provider === "external" && v.wixBookings
+            ? "Disponibilidad vía API Wix Bookings del sitio; aplica duración mínima si está configurada."
+            : v.provider === "external" && isSkeddaUrl(v.externalBookingUrl)
+              ? "Disponibilidad vía Skedda (hover verde); aplica duración mínima del venue si está configurada."
+              : v.provider === "external"
+                ? "Consulta horarios y paga en el enlace oficial."
+                : "Puedes consultar horarios en este chat con checkAvailability.",
     })),
   };
 }
@@ -105,6 +120,67 @@ async function runCheckAvailability(venueId: string, date: string) {
 
   if (venue.provider === "external") {
     const url = venue.externalBookingUrl ?? "";
+
+    if (hasWixBookingsApi(venue) && venue.wixBookings) {
+      const minMins = venue.externalMinBookingMinutes;
+      const wix = await fetchWixBookingsDayAvailability(
+        url,
+        venue.wixBookings,
+        date,
+        { minBookableMinutes: minMins }
+      );
+      if (wix.ok) {
+        if (wix.totalFreeSlots === 0) {
+          return redactBookingUrl(venue, {
+            available: false,
+            date,
+            venueId,
+            venueName: venue.name,
+            message:
+              minMins && minMins > 0
+                ? `No se detectaron franjas libres de **al menos ${minMins} minutos** (reserva mínima del club) para el ${date} en ${venue.name}.`
+                : `No se detectaron franjas libres para el ${date} en ${venue.name} (según el calendario).`,
+            source: wix.source,
+            disclaimer: wix.disclaimer,
+            ...(minMins ? { minBookingMinutes: minMins } : {}),
+          });
+        }
+
+        const courts: Record<
+          string,
+          { courtName: string; intervalLabel: string }[]
+        > = {};
+        for (const [courtName, slots] of Object.entries(wix.courts)) {
+          courts[courtName] = slots.map((s) => ({
+            courtName: s.courtName,
+            intervalLabel: s.intervalLabel,
+          }));
+        }
+
+        return redactBookingUrl(venue, {
+          available: true,
+          date,
+          venueId,
+          venueName: venue.name,
+          courts,
+          totalSlots: wix.totalFreeSlots,
+          source: wix.source,
+          disclaimer: wix.disclaimer,
+          serviceName: wix.serviceName,
+          ...(minMins ? { minBookingMinutes: minMins } : {}),
+        });
+      }
+
+      return {
+        ...externalBookingPayload(venue),
+        date,
+        scrapeError: wix.error,
+        message: hidePublicBooking(venue)
+          ? `No pudimos leer el calendario Wix (${wix.error}). Pide otra fecha o reintenta.`
+          : `No pude leer el calendario Wix (${wix.error}). Abre el enlace oficial del club.`,
+      };
+    }
+
     if (isSkeddaUrl(url)) {
       const minMins = venue.externalMinBookingMinutes;
       const scraped = await scrapeSkeddaDayAvailability(url, date, {
@@ -285,6 +361,42 @@ async function runCheckMultipleDays(
 
   if (venue.provider === "external") {
     const url = venue.externalBookingUrl ?? "";
+
+    if (hasWixBookingsApi(venue) && venue.wixBookings) {
+      const minMins = venue.externalMinBookingMinutes;
+      const multi = await fetchWixBookingsConsecutiveDays(
+        url,
+        venue.wixBookings,
+        startDate,
+        numberOfDays,
+        { minBookableMinutes: minMins }
+      );
+      if (multi.ok) {
+        return redactBookingUrl(venue, {
+          venueId,
+          daysChecked: multi.results.length,
+          daysWithAvailability: multi.results.filter((r) => r.totalFreeSlots > 0)
+            .length,
+          results: multi.results.map((r) => ({
+            date: r.date,
+            slots: r.totalFreeSlots,
+            courts: r.courts,
+          })),
+          source: multi.source,
+          venueName: venue.name,
+          disclaimer: multi.disclaimer,
+          ...(minMins ? { minBookingMinutes: minMins } : {}),
+        });
+      }
+      return {
+        venueId,
+        ...externalBookingPayload(venue),
+        daysChecked: numberOfDays,
+        results: [] as const,
+        scrapeError: multi.error,
+      };
+    }
+
     if (isSkeddaUrl(url)) {
       const multi = await scrapeSkeddaConsecutiveDays(
         url,

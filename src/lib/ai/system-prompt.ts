@@ -13,7 +13,9 @@ function venueListForBirriapp(): string {
           v.provider === "atc"
             ? "disponibilidad en vivo en este chat (ATC)"
             : v.hidePublicBookingUrl
-              ? "lector interno Skedda + **reservas solo por este chat** (no enlaces al usuario)"
+              ? v.wixBookings
+                ? "API Wix Bookings + **reservas solo por este chat** (sin enlaces al usuario)"
+                : "lector interno Skedda + **reservas solo por este chat** (no enlaces al usuario)"
               : v.externalBookingUrl?.includes("skedda.com")
                 ? `Skedda (scraper + enlace)${v.externalBookingUrl ? `: ${v.externalBookingUrl}` : ""}`
                 : `reservas en sistema externo${v.externalBookingUrl ? `: ${v.externalBookingUrl}` : ""}`
@@ -33,13 +35,23 @@ export function buildSingleVenueSystemPrompt(venueId: string): string {
     ? `- **Pago Yappy:** ${p.payment.instructionEs} Usuario: **${p.payment.yappyHandle}**.`
     : `- **Pago / reserva:** ${p.payment.instructionEs}`;
 
+  const inChatAvailabilityNote =
+    v.wixBookings
+      ? "**Wix Bookings:** con source **wix-bookings-api** y sin error, los cupos vienen de la API pública de disponibilidad del sitio. **No** digas que la información está “limitada” sin motivo. Respeta **minBookingMinutes** si viene en el resultado.\n"
+      : v.externalBookingUrl?.includes("skedda.com")
+        ? "**Skedda (lector):** con source **skedda-scraper** y sin error de scrape, los cupos listados ya están verificados (hover verde). **No** digas que la información está “limitada” ni uses disclaimers tipo “puede estar incompleta” salvo que la herramienta haya fallado o no haya devuelto datos.\n"
+        : "**Disponibilidad:** solo con herramientas; no inventes horarios.\n";
+
+  const intervalLabelNote =
+    v.wixBookings || v.externalBookingUrl?.includes("skedda.com")
+      ? "**Franjas:** usa los intervalLabel tal cual (rangos reservables). Si el resultado incluye **minBookingMinutes**, respeta esa **reserva mínima** al sugerir horarios. Si preguntan por una hora que no aparece, dilo sin inventar.\n"
+      : "";
+
   const externalBlock =
     v.provider === "external" && v.hidePublicBookingUrl
-      ? `\n**Flujo solo en chat:** no muestres ni sugieras **ningún enlace** (Skedda u otros) para ver calendario ni pagar. Toda la UX es por este hilo: herramientas de disponibilidad + **createBooking**.\n` +
-        "**Skedda (lector):** con source **skedda-scraper** y sin error de scrape, los cupos listados ya están verificados (hover verde). **No** digas que la información está “limitada” ni uses disclaimers tipo “puede estar incompleta” salvo que la herramienta haya fallado o no haya devuelto datos.\n" +
-        (v.externalBookingUrl?.includes("skedda.com")
-          ? "**Franjas:** usa los intervalLabel tal cual (rangos reservables). Si el resultado incluye **minBookingMinutes**, respeta esa **reserva mínima** al sugerir horarios (no ofrezcas solo media hora). Si preguntan por una hora que no aparece, dilo sin inventar.\n"
-          : "")
+      ? `\n**Flujo solo en chat:** no muestres ni sugieras **ningún enlace** (Skedda, Wix u otros) para ver calendario ni pagar. Toda la UX es por este hilo: herramientas de disponibilidad + **createBooking**.\n` +
+        inChatAvailabilityNote +
+        intervalLabelNote
       : v.provider === "external" && v.externalBookingUrl
         ? `\n**Reservas y cupos:** enlace oficial: ${v.externalBookingUrl}${
             v.externalBookingUrl.includes("skedda.com")
@@ -142,9 +154,10 @@ ${venueListForBirriapp()}
 ## Comportamiento por defecto (disponibilidad)
 
 - Si el usuario pregunta por cupos **sin decir un club concreto** (ej. “¿hay cancha mañana?”, “¿en cuál sede hay espacio?”), llama **checkAvailabilityAcrossVenues** con la fecha en YYYY-MM-DD. Eso consulta **todas** las sedes a la vez para que no tengan que ir chat por chat.
-- Si el usuario **nombra una sola sede** o dice “solo PRO CAMP” / “solo Fútbol Town”, usa **checkAvailability** (o **checkMultipleDays**) **solo** con ese **venueId**.
+- Si el usuario **nombra una sola sede** o dice “solo PRO CAMP”, “solo Fútbol Town”, “solo Condado Sport Center”, etc., usa **checkAvailability** (o **checkMultipleDays**) **solo** con ese **venueId**.
 - **listVenues** cuando pregunten qué venues hay o cómo reservar en cada uno.
-- **Fútbol Town** y similares “solo chat” usan lector interno Skedda (source **skedda-scraper**) **sin** mandar al usuario a la web.
+- **Fútbol Town:** cupos en vivo vía **skedda-scraper** (sin enlaces al usuario).
+- **Condado Sport Center** (Wix Bookings): cupos en vivo con source **wix-bookings-api** (misma API que el calendario del sitio). **createBooking** registra la intención en el chat como en Fútbol Town.
 
 ## Estilo
 
@@ -155,7 +168,7 @@ ${venueListForBirriapp()}
 ## Políticas
 
 - Cada club tiene reglas distintas. Tras **getVenueInfo**, cita **solo** las políticas de **ese** venue.
-- **createBooking** solo confirma reservas reales en venues **ATC** tras confirmar datos con el usuario. En Skedda / externos, dirige al enlace.
+- **createBooking** solo confirma reservas reales en venues **ATC** tras confirmar datos con el usuario. En **Fútbol Town** y **Condado Sport Center** (solo chat), la herramienta registra la solicitud; el club confirma.
 
 ## Contexto
 

@@ -38,6 +38,15 @@ export interface VenueConfig {
   hidePublicBookingUrl?: boolean;
   /** Skedda u externo: solo listar bloques continuos con al menos esta duración (minutos). */
   externalMinBookingMinutes?: number;
+  /**
+   * Calendario Wix Bookings (API `/_api/...` del mismo dominio que `externalBookingUrl`).
+   * Permite cupos en el chat sin Playwright.
+   */
+  wixBookings?: {
+    calendarSlug: string;
+    timeZone: string;
+    siteRevision?: string;
+  };
 }
 
 export const VENUE_PLAYBOOKS: Record<string, VenuePlaybook> = {
@@ -99,6 +108,33 @@ export const VENUE_PLAYBOOKS: Record<string, VenuePlaybook> = {
         "La confirmación final la envía el club por este canal; guarda el comprobante si te lo piden.",
     },
   },
+  "condado-sport-center": {
+    address:
+      "Urb. Condado del Rey, Av. Condado del Rey, Ancón, Ciudad de Panamá, Panamá",
+    clubServices: [
+      "Cancha completa (formatos 7vs7 / 8vs8 / 9vs9)",
+      "Reserva en calendario web",
+      "Eventos y consultas por contacto del sitio",
+    ],
+    typicalCourtFeatures:
+      "Cancha completa para fútbol; revisa en el calendario el formato y disponibilidad al reservar.",
+    policies: {
+      deposit:
+        "Depósito, precios y condiciones según lo indicado al reservar en el calendario oficial del club.",
+      footwear:
+        "Consulta en el club o al reservar las reglas de calzado para la cancha.",
+      cancellation:
+        "Cancelación y cambios según las políticas que aplique Condado Sport Center en su sistema de reservas.",
+    },
+    payment: {
+      instructionEs:
+        "El club indica método de pago (transferencia, Yappy, etc.) **por este chat** tras confirmar el cupo; el precio en web suele partir de **90 PAB** la hora según el servicio.",
+    },
+    confirmation: {
+      noEmailVoucherEs:
+        "La confirmación y comprobantes dependen del proceso en el calendario web del club; guarda lo que te envíe el sistema o recepción.",
+    },
+  },
 };
 
 /** Compat: mismo contenido que VENUE_PLAYBOOKS["pro-camp-explora"] */
@@ -126,6 +162,24 @@ export const VENUES: Record<string, VenueConfig> = {
     externalBookingUrl: "https://futboltown.skedda.com/booking",
     hidePublicBookingUrl: true,
     externalMinBookingMinutes: 60,
+  },
+  "condado-sport-center": {
+    id: "condado-sport-center",
+    name: "Condado Sport Center",
+    slug: "condado-sport-center-panama",
+    timezone: "America/Panama",
+    currency: "USD",
+    locale: "es-PA",
+    provider: "external",
+    externalBookingUrl:
+      "https://www.condadosportcenter.com/booking-calendar/cancha-completa-1",
+    hidePublicBookingUrl: true,
+    externalMinBookingMinutes: 60,
+    wixBookings: {
+      calendarSlug: "cancha-completa-1",
+      timeZone: "America/Panama",
+      siteRevision: "89",
+    },
   },
 };
 

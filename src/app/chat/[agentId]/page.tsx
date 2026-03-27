@@ -11,7 +11,7 @@ import {
 const SUGGESTIONS: Record<ChatAgentId, string[]> = {
   birriapp: [
     "¿Qué venues están conectados?",
-    "¿Hay cancha hoy en PRO CAMP y en Fútbol Town?",
+    "¿Hay cancha hoy en PRO CAMP, Fútbol Town o Condado Sport Center?",
     "Compara precios mañana por la noche",
     "Reservar Fútbol Town por aquí",
   ],
@@ -26,6 +26,12 @@ const SUGGESTIONS: Record<ChatAgentId, string[]> = {
     "Quiero reservar para mañana a las 8 p.m.",
     "¿Qué servicios tienen?",
     "Políticas de cancelación",
+  ],
+  "condado-sport-center": [
+    "¿Dónde quedan y cómo reservo?",
+    "Enlace para ver disponibilidad de la cancha completa",
+    "¿Qué formatos de juego ofrecen (7vs7, etc.)?",
+    "Políticas y pago",
   ],
 };
 
@@ -59,7 +65,9 @@ export default async function ChatAgentPage({ params }: PageProps) {
       ? "Comparo sedes conectadas: pregunta por fechas y horarios; todo desde este chat."
       : agentId === "futbol-town"
         ? "Consulta cupos y deja tu reserva conmigo; el club confirma por aquí."
-        : `Te ayudo a consultar disponibilidad y reservar en ${ui.title}.`;
+        : agentId === "condado-sport-center"
+          ? "Consulta cupos en vivo aquí y deja tu solicitud de reserva; el club confirma por este chat."
+          : `Te ayudo a consultar disponibilidad y reservar en ${ui.title}.`;
 
   return (
     <main className="h-dvh flex flex-col bg-neutral-950">

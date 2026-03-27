@@ -9,12 +9,18 @@ export const CHAT_AGENT_IDS = [
   "birriapp",
   "pro-camp-explora",
   "futbol-town",
+  "condado-sport-center",
 ] as const;
 
 export type ChatAgentId = (typeof CHAT_AGENT_IDS)[number];
 
 export function isChatAgentId(id: string): id is ChatAgentId {
   return (CHAT_AGENT_IDS as readonly string[]).includes(id);
+}
+
+/** Agente de una sola sede (excluye Birriapp multi-venue). */
+export function isSingleVenueChatAgentId(id: string): boolean {
+  return isChatAgentId(id) && id !== "birriapp";
 }
 
 export interface ChatAgentUiMeta {
@@ -58,6 +64,16 @@ export const CHAT_AGENT_UI: ChatAgentUiMeta[] = [
     accent: "sky",
     icon: "🏟",
   },
+  {
+    id: "condado-sport-center",
+    title: "Condado Sport Center",
+    tagline: "Agente del club",
+    description:
+      "Cupo en vivo (calendario Wix) y reserva coordinada por este chat, sin salir a la web del club.",
+    section: "venue",
+    accent: "amber",
+    icon: "🏢",
+  },
 ];
 
 export function getChatAgentUi(id: string): ChatAgentUiMeta | undefined {
@@ -76,7 +92,7 @@ export function resolveChatAgent(agentId: string): ResolvedChatAgent | null {
       system: buildBirriappSystemPrompt(),
     };
   }
-  if (agentId === "pro-camp-explora" || agentId === "futbol-town") {
+  if (isSingleVenueChatAgentId(agentId)) {
     return {
       tools: createBookingTools({
         mode: "single",
