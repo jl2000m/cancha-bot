@@ -1,16 +1,21 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText, stepCountIs, type ModelMessage } from "ai";
-import { bookingTools } from "./tools";
-import { buildBookingAgentSystemPrompt } from "./system-prompt";
+import { resolveChatAgent } from "@/lib/agents/registry";
 
 export async function generateAgentResponse(
-  messages: ModelMessage[]
+  messages: ModelMessage[],
+  agentId: string
 ): Promise<string> {
+  const resolved = resolveChatAgent(agentId);
+  if (!resolved) {
+    throw new Error(`Unknown chat agent: ${agentId}`);
+  }
+
   const result = await generateText({
     model: openai("gpt-4o-mini"),
-    system: buildBookingAgentSystemPrompt(),
+    system: resolved.system,
     messages,
-    tools: bookingTools,
+    tools: resolved.tools,
     stopWhen: stepCountIs(5),
   });
 

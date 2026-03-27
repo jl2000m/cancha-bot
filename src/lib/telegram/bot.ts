@@ -1,9 +1,30 @@
-import { Telegraf } from "telegraf";
+import { Markup, Telegraf } from "telegraf";
 import { generateAgentResponse } from "@/lib/ai/generate";
 import type { ModelMessage } from "ai";
+import {
+  CHAT_AGENT_UI,
+  type ChatAgentId,
+  getChatAgentUi,
+  isChatAgentId,
+} from "@/lib/agents/registry";
 
 const conversationHistory = new Map<number, ModelMessage[]>();
 const MAX_HISTORY = 20;
+
+const DEFAULT_TELEGRAM_AGENT: ChatAgentId = "pro-camp-explora";
+const chatAgentByChat = new Map<number, ChatAgentId>();
+
+function getAgentId(chatId: number): ChatAgentId {
+  return chatAgentByChat.get(chatId) ?? DEFAULT_TELEGRAM_AGENT;
+}
+
+function agentInlineKeyboard() {
+  return Markup.inlineKeyboard(
+    CHAT_AGENT_UI.map((a) => [
+      Markup.button.callback(`${a.icon} ${a.title}`, `agent:${a.id}`),
+    ])
+  );
+}
 
 function chunkTelegramMessage(text: string, maxLen: number): string[] {
   const chunks: string[] = [];
@@ -34,14 +55,43 @@ export function createTelegramBot(token: string): Telegraf {
   bot.start((ctx) => {
     const chatId = ctx.chat.id;
     conversationHistory.set(chatId, []);
+    const agentId = getAgentId(chatId);
+    const meta = getChatAgentUi(agentId);
+    const modeLine = meta
+      ? `\n\n📍 **Modo actual:** ${meta.icon} ${meta.title} (${meta.tagline}).`
+      : "";
+
     ctx.reply(
       "⚽ ¡Hola! Soy CanchaBot.\n\n" +
-        "Te ayudo a consultar disponibilidad y reservar canchas en PRO CAMP EXPLORA.\n\n" +
-        "Puedes preguntarme cosas como:\n" +
-        '• "¿Hay cancha disponible hoy?"\n' +
-        '• "¿Qué horarios tienen mañana?"\n' +
-        '• "Quiero reservar el sábado a las 7"\n\n' +
-        "¿En qué te puedo ayudar?"
+        "En la web eliges sede en la portada; aquí hazlo con los botones o con /modo." +
+        modeLine +
+        "\n\n¿Con cuál quieres hablar ahora?",
+      agentInlineKeyboard()
+    );
+  });
+
+  bot.command("modo", (ctx) => {
+    const chatId = ctx.chat.id;
+    const meta = getChatAgentUi(getAgentId(chatId));
+    const modeLine = meta
+      ? `📍 **Modo actual:** ${meta.icon} ${meta.title}.\n\n`
+      : "";
+    ctx.reply(`${modeLine}Elige sede o agente multi-sede:`, agentInlineKeyboard());
+  });
+
+  bot.action(/^agent:(.+)$/, async (ctx) => {
+    const raw = ctx.match[1];
+    if (!isChatAgentId(raw)) {
+      await ctx.answerCbQuery("Opción no válida");
+      return;
+    }
+    const chatId = ctx.chat!.id;
+    chatAgentByChat.set(chatId, raw);
+    conversationHistory.set(chatId, []);
+    const meta = getChatAgentUi(raw)!;
+    await ctx.answerCbQuery(`Modo: ${meta.title}`);
+    await ctx.reply(
+      `Listo — hablas con **${meta.title}** (${meta.tagline}).\n\n${meta.description}`
     );
   });
 
@@ -51,6 +101,7 @@ export function createTelegramBot(token: string): Telegraf {
         "📅 Consultar disponibilidad de canchas\n" +
         "🏟 Reservar una cancha\n" +
         "ℹ️ Información del venue (horarios, ubicación, precios)\n\n" +
+        "**Sede / modo:** usa /modo o los botones al iniciar.\n\n" +
         "Escríbeme en español o inglés."
     );
   });
@@ -64,7 +115,8 @@ export function createTelegramBot(token: string): Telegraf {
     try {
       await ctx.sendChatAction("typing");
 
-      const response = await generateAgentResponse(getHistory(chatId));
+      const agentId = getAgentId(chatId);
+      const response = await generateAgentResponse(getHistory(chatId), agentId);
 
       addMessage(chatId, { role: "assistant", content: response });
 

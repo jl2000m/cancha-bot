@@ -1,9 +1,5 @@
-import { Chat } from "@/components/chat";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <main className="h-dvh flex flex-col">
-      <Chat />
-    </main>
-  );
+export default function RootPage() {
+  redirect("/home");
 }

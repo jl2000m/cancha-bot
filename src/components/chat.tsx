@@ -4,12 +4,51 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useRef, useEffect, useState, useMemo } from "react";
 
-const SUGGESTIONS = [
-  "¿Hay cancha disponible hoy?",
-  "¿Qué horarios tienen mañana?",
-  "¿Cuáles son los precios?",
-  "¿Dónde queda la cancha?",
-];
+export type ChatAccent = "emerald" | "sky" | "amber";
+
+const ACCENT = {
+  emerald: {
+    headerIcon: "bg-emerald-600",
+    welcomeWrap: "bg-emerald-600/20",
+    strong: "text-emerald-200",
+    userBubble: "bg-emerald-600 hover:bg-emerald-500",
+    submit: "bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600",
+    borderHover: "hover:border-emerald-600/50 hover:bg-emerald-600/5",
+    focusRing: "focus-within:border-emerald-600/50",
+    pulse: "bg-emerald-500",
+  },
+  sky: {
+    headerIcon: "bg-sky-600",
+    welcomeWrap: "bg-sky-600/20",
+    strong: "text-sky-200",
+    userBubble: "bg-sky-600 hover:bg-sky-500",
+    submit: "bg-sky-600 hover:bg-sky-500 disabled:hover:bg-sky-600",
+    borderHover: "hover:border-sky-600/50 hover:bg-sky-600/5",
+    focusRing: "focus-within:border-sky-600/50",
+    pulse: "bg-sky-500",
+  },
+  amber: {
+    headerIcon: "bg-amber-600",
+    welcomeWrap: "bg-amber-600/20",
+    strong: "text-amber-200",
+    userBubble: "bg-amber-600 hover:bg-amber-500",
+    submit: "bg-amber-600 hover:bg-amber-500 disabled:hover:bg-amber-600",
+    borderHover: "hover:border-amber-600/50 hover:bg-amber-600/5",
+    focusRing: "focus-within:border-amber-600/50",
+    pulse: "bg-amber-500",
+  },
+} as const;
+
+export interface ChatProps {
+  agentId: string;
+  title: string;
+  tagline: string;
+  welcomeTitle: string;
+  welcomeHint: string;
+  suggestions: string[];
+  icon: string;
+  accent?: ChatAccent;
+}
 
 function textFromMessage(message: UIMessage): string {
   return message.parts
@@ -21,7 +60,13 @@ function textFromMessage(message: UIMessage): string {
 }
 
 /** Renders `**bold**` as <strong>; keeps newlines via pre-wrap on parent. */
-function AssistantFormattedText({ text }: { text: string }) {
+function AssistantFormattedText({
+  text,
+  strongClass,
+}: {
+  text: string;
+  strongClass: string;
+}) {
   const segments = text.split(/(\*\*[\s\S]*?\*\*)/g);
   return (
     <>
@@ -32,7 +77,7 @@ function AssistantFormattedText({ text }: { text: string }) {
           part.length > 4
         ) {
           return (
-            <strong key={i} className="font-semibold text-emerald-200">
+            <strong key={i} className={`font-semibold ${strongClass}`}>
               {part.slice(2, -2)}
             </strong>
           );
@@ -43,10 +88,25 @@ function AssistantFormattedText({ text }: { text: string }) {
   );
 }
 
-export function Chat() {
+export function Chat({
+  agentId,
+  title,
+  tagline,
+  welcomeTitle,
+  welcomeHint,
+  suggestions,
+  icon,
+  accent = "emerald",
+}: ChatProps) {
+  const a = ACCENT[accent];
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/chat" }),
-    []
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: { agentId },
+      }),
+    [agentId]
   );
 
   const { messages, sendMessage, status } = useChat({ transport });
@@ -86,15 +146,17 @@ export function Chat() {
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
       <header className="flex items-center gap-3 px-4 py-3 border-b border-neutral-800/50">
-        <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-lg font-bold shrink-0">
-          ⚽
+        <div
+          className={`w-10 h-10 rounded-full ${a.headerIcon} flex items-center justify-center text-lg font-bold shrink-0`}
+        >
+          {icon}
         </div>
         <div>
-          <h1 className="font-semibold text-sm leading-tight">CanchaBot</h1>
-          <p className="text-xs text-neutral-500">PRO CAMP EXPLORA</p>
+          <h1 className="font-semibold text-sm leading-tight">{title}</h1>
+          <p className="text-xs text-neutral-500">{tagline}</p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className={`w-2 h-2 rounded-full ${a.pulse} animate-pulse`} />
           <span className="text-xs text-neutral-500">En línea</span>
         </div>
       </header>
@@ -105,21 +167,22 @@ export function Chat() {
       >
         {!hasMessages && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-600/20 flex items-center justify-center text-3xl mb-4">
-              ⚽
+            <div
+              className={`w-16 h-16 rounded-2xl ${a.welcomeWrap} flex items-center justify-center text-3xl mb-4`}
+            >
+              {icon}
             </div>
-            <h2 className="text-lg font-semibold mb-1">¡Hola! Soy CanchaBot</h2>
+            <h2 className="text-lg font-semibold mb-1">{welcomeTitle}</h2>
             <p className="text-sm text-neutral-400 max-w-sm mb-8">
-              Te ayudo a consultar disponibilidad y reservar canchas en{" "}
-              <span className="text-emerald-400 font-medium">PRO CAMP EXPLORA</span>.
+              {welcomeHint}
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => handleSuggestion(s)}
-                  className="text-left text-xs px-3 py-2.5 rounded-lg border border-neutral-800 hover:border-emerald-600/50 hover:bg-emerald-600/5 transition-colors text-neutral-300"
+                  className={`text-left text-xs px-3 py-2.5 rounded-lg border border-neutral-800 ${a.borderHover} transition-colors text-neutral-300`}
                 >
                   {s}
                 </button>
@@ -144,14 +207,17 @@ export function Chat() {
                 <div
                   className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                     isUser
-                      ? "bg-emerald-600 text-white rounded-br-md"
+                      ? `${a.userBubble} text-white rounded-br-md`
                       : "bg-neutral-800/80 text-neutral-100 rounded-bl-md"
                   }`}
                 >
                   {isUser ? (
                     content
                   ) : (
-                    <AssistantFormattedText text={content} />
+                    <AssistantFormattedText
+                      text={content}
+                      strongClass={a.strong}
+                    />
                   )}
                 </div>
               </div>
@@ -174,7 +240,7 @@ export function Chat() {
       <div className="px-4 pb-4 pt-2">
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 focus-within:border-emerald-600/50 transition-colors"
+          className={`flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 ${a.focusRing} transition-colors`}
         >
           <input
             ref={inputRef}
@@ -187,7 +253,7 @@ export function Chat() {
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:hover:bg-emerald-600 flex items-center justify-center transition-colors shrink-0"
+            className={`w-8 h-8 rounded-lg ${a.submit} disabled:opacity-30 flex items-center justify-center transition-colors shrink-0 text-white`}
           >
             <svg
               width="16"
@@ -205,7 +271,7 @@ export function Chat() {
           </button>
         </form>
         <p className="text-center text-[10px] text-neutral-600 mt-2">
-          CanchaBot puede cometer errores. Confirma tu reserva directamente.
+          El asistente puede cometer errores. Confirma tu reserva con el club.
         </p>
       </div>
     </div>
